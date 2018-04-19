@@ -117,14 +117,14 @@ static double fast_pow10(short exp) // OPT
  * compromises precision of
  * integer numbers, and also
  * probably negatively impacts
- * performace.
+ * performance.
  */
 
 /* static */ int read_number(char **cursor, double *float_, int64_t *int_)
 {
 	int64_t digits;
 	int dig_sign, exp_sign;
-	short frac_exp = 0, usr_exp, exp;
+	short exp = 0, usr_exp = 0;
 	{	// PARSE MINUS SIGN
 		// TODO better type than int
 		int isMinus = (**cursor == '-');
@@ -148,9 +148,9 @@ static double fast_pow10(short exp) // OPT
 		while (is_digit(**cursor))
 		{	digits = digits * 10 + **cursor - '0';
 			++*cursor;
-			--frac_exp;  }  }
+			--exp;  }  }
 	digits *= dig_sign;
-	if (**cursor | 0x20 == 'E')
+	if ((**cursor | 0x20) == 'e')
 	{	// PARSE EXPONENT
 		++*cursor;
 		{	// PARSE SIGN
@@ -167,11 +167,11 @@ static double fast_pow10(short exp) // OPT
 			while (is_digit(**cursor))
 			{	usr_exp = usr_exp * 10 + **cursor - '0';
 				++*cursor;  }
-			usr_exp *= exp_sign;  }  }
-	exp = frac_exp + usr_exp;
+			exp += usr_exp * exp_sign;  }  }
 	{	// ASSEMBLE NUMBER
-		*float_ = digits * fast_pow10(exp);
-		*int_ = *float_;  }
+		double factor = fast_pow10(exp);
+		*float_ = digits * factor;
+		*int_ = digits * factor;  }
 	return QCBE_OK;
 }
 

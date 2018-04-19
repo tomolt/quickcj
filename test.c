@@ -11,8 +11,12 @@ int main(int argc, char *argv[])
 	}
 	double float_ = 0.0;
 	int64_t int_ = 0LL;
-	int r = read_number(&argv[1], &float_, &int_);
-	printf("r      = %d\nfloat_ = %f\nint_   = %lld\n", r, float_, int_);
+	char *cursor = argv[1];
+	int r = read_number(&cursor, &float_, &int_);
+	printf("r      = %d\nfloat_ = %f\nint_   = %ld\n", r, float_, int_);
+	double atof_ = atof(argv[1]);
+	int64_t atol_ = atol(argv[1]);
+	printf("atof() = %f\natol() = %ld\n", atof_, atol_);
 	return EXIT_SUCCESS;
 }
 
