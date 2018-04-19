@@ -105,19 +105,31 @@ static int is_digit(char c)
 
 static double fast_pow10(short exp) // OPT
 {
-	return pow10(exp);
+	return pow(10.0, exp);
 }
 
-static int read_number(char **cursor, double *float_, int64_t *int_)
+/* Breaks down after:
+ * 1111111111111111111
+ * I64 Max:
+ * 9223372036854775807
+ * Changing the type of digits
+ * to double solves this, but
+ * compromises precision of
+ * integer numbers, and also
+ * probably negatively impacts
+ * performace.
+ */
+
+/* static */ int read_number(char **cursor, double *float_, int64_t *int_)
 {
 	int64_t digits;
 	int dig_sign, exp_sign;
-	short exp;
+	short frac_exp = 0, usr_exp, exp;
 	{	// PARSE MINUS SIGN
 		// TODO better type than int
 		int isMinus = (**cursor == '-');
 		*cursor += isMinus;
-		sign = 1 - 2 * isMinus;  }
+		dig_sign = 1 - 2 * isMinus;  }
 	{	// PARSE INTEGER PART
 		if (!is_digit(**cursor))
 		{	return QCBE_BAD_NUMBER_BEGIN;  }
@@ -136,9 +148,9 @@ static int read_number(char **cursor, double *float_, int64_t *int_)
 		while (is_digit(**cursor))
 		{	digits = digits * 10 + **cursor - '0';
 			++*cursor;
-			--exp;  }  }  }
+			--frac_exp;  }  }
 	digits *= dig_sign;
-	if (**cursor | 0x20 != 'E')
+	if (**cursor | 0x20 == 'E')
 	{	// PARSE EXPONENT
 		++*cursor;
 		{	// PARSE SIGN
@@ -150,13 +162,16 @@ static int read_number(char **cursor, double *float_, int64_t *int_)
 		{	// PARSE INTEGER
 			if (!is_digit(**cursor))
 			{	return QCBE_BAD_NUMBER_BEGIN;  }
-			exp = **cursor - '0';
-			while (++*cursor, is_digit(**cursor))
-			{	exp = exp * 10 + **cursor - '0';  }
-			exp *= exp_sign;  }  }
+			usr_exp = **cursor - '0';
+			++*cursor;
+			while (is_digit(**cursor))
+			{	usr_exp = usr_exp * 10 + **cursor - '0';
+				++*cursor;  }
+			usr_exp *= exp_sign;  }  }
+	exp = frac_exp + usr_exp;
 	{	// ASSEMBLE NUMBER
 		*float_ = digits * fast_pow10(exp);
-		*int_ = float_;  }
+		*int_ = *float_;  }
 	return QCBE_OK;
 }
 
