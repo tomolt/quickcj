@@ -48,7 +48,7 @@ static inline int is_base16(char c)
 				case 't': c = '\t'; break;
 				case 'r': c = '\r'; break;
 				case 'n': c = '\n'; break;
-				case 'u': // BUG returns STRING_DOESNT_END on \u0000
+				case 'u':
 				{	int pt = 0; // OPT all of pt parsing
 					for (int i = 0; i < 4; ++i)
 					{	char c = **cursor;
@@ -90,7 +90,8 @@ static inline int is_base16(char c)
 		{	return QCBE_STRING_DOESNT_END;  }
 		*write++ = c;  }
 	*write = '\0';
-	handler->string_func(handler->userdata, begin);
+	size_t length = write - begin;
+	handler->string_func(handler->userdata, begin, length);
 	return QCBE_OK;
 }
 
@@ -237,6 +238,7 @@ static int read_object(char **cursor)
 	int r;
 	// Skip opening '{'
 	++*cursor;
+	handler->object_func();
 	// Check if empty
 	skip_space(cursor);
 	if (**cursor == '}') {
@@ -315,27 +317,39 @@ static int read_array(char **cursor)
 	return QCBE_OK;
 }
 
-static int read_keyword(char **cursor)
+#endif
+
+int is_eokw(char c)
 {
-	if (strncmp(*cursor, "null", 4)) {
-		*type = JSON_NULL;
-		*cursor += 4;
-			hl.bool_func();
-	} else if (strncmp(*cursor, "true", 4)) {
-		*type = JSON_BOOL;
-		value->bool_ = true;
-		*cursor += 4;
-			hl.bool_func();
-	} else if (strncmp(*cursor, "false", 5)) {
-		*type = JSON_BOOL;
-		value->bool_ = false;
-		*cursor += 5;
-			hl.bool_func();
-	} else {
-		return QCBE_UNKNOWN_KEYWORD;
-	}
-	return QCBE_OK;
+	return is_space(c) || c == '\0';
 }
+
+int read_keyword(char **cursor, qcb_handler_t *handler)
+{
+	// OPT entire function
+	if (strncmp(*cursor, "null", 4) == 0)
+	{	if (!is_eokw((*cursor)[4]))
+		{	return QCBE_UNKNOWN_KEYWORD;  }
+		*cursor += 5;
+		handler->bool_func(handler->userdata, 0);
+		return QCBE_OK;  } // FIXME
+	else if (strncmp(*cursor, "true", 4) == 0)
+	{	if (!is_eokw((*cursor)[4]))
+		{	return QCBE_UNKNOWN_KEYWORD;  }
+		*cursor += 5;
+		handler->bool_func(handler->userdata, 1);
+		return QCBE_OK;  }
+	else if (strncmp(*cursor, "false", 5) == 0)
+	{	if (!is_eokw((*cursor)[5]))
+		{	return QCBE_UNKNOWN_KEYWORD;  }
+		*cursor += 6;
+		handler->bool_func(handler->userdata, 0);
+		return QCBE_OK;  }
+	else
+	{	return QCBE_UNKNOWN_KEYWORD;  }
+}
+
+#if 0
 
 static int read_value(char **cursor, handler_t const hl)
 {

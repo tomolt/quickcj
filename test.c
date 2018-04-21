@@ -7,6 +7,7 @@
 
 int read_number(char **cursor, double *float_, int64_t *int_);
 int read_string(char **cursor, qcb_handler_t *handler);
+int read_keyword(char **cursor, qcb_handler_t *handler);
 
 #if 0
 static void int_number(char const *arg)
@@ -22,9 +23,17 @@ static void int_number(char const *arg)
 }
 #endif
 
-static void string_handler(void *userdata, char const *string)
+static void string_handler(void *userdata, char const *string, size_t length)
 {
-	printf("string = %s\n", string);
+	printf("string = \"");
+	for (size_t i = 0; i < length; ++i) {
+		char c = string[i];
+		if (c < 0x20) {
+			c = '?';
+		}
+		putchar(c);
+	}
+	printf("\" (length: %lu)\n", length);
 }
 
 static void int_string(char const *arg)
@@ -38,13 +47,30 @@ static void int_string(char const *arg)
 	free(data);
 }
 
+static void bool_handler(void *userdata, int value)
+{
+	printf("bool   = %s\n", value ? "true" : "false");
+}
+
+static void int_keyword(char const *arg)
+{
+	qcb_handler_t handler = {.bool_func = bool_handler};
+	size_t length = strlen(arg) + 1;
+	char *data = malloc(length), *cursor = data;
+	memcpy(data, arg, length);
+	int r = read_keyword(&cursor, &handler);
+	printf("r      = %d\n", r);
+	free(data);
+}
+
 int main(int argc, char *argv[])
 {
 	if (argc != 2) {
 		return EXIT_FAILURE;
 	}
 	// int_number(argv[1]);
-	int_string(argv[1]);
+	// int_string(argv[1]);
+	int_keyword(argv[1]);
 	return EXIT_SUCCESS;
 }
 
