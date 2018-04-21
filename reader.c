@@ -2,105 +2,96 @@
 #include <string.h>
 #include <math.h>
 
-#if 0
+#include "quickcj.h"
 
-typedef struct {
-	void *payload;
-	void bool_func(void *);
-	void string_func(void *);
-	void float_func(void *);
-	void int_func(void *);
-	void object_func(void *);
-	void array_func(void *);
-	void close_func(void *);
-} handler_t;
-
-#endif
-
-typedef enum {
-	QCBE_OK,
-	QCBE_BAD_ESCAPE_SEQUENCE,
-	QCBE_STRING_DOESNT_END,
-	QCBE_BAD_NUMBER_BEGIN,
-	QCBE_KEY_VALUE_NEEDS_COLON,
-	QCBE_BAD_OBJECT_SEPARATOR,
-	QCBE_BAD_ARRAY_SEPARATOR,
-	QCBE_UNKNOWN_KEYWORD,
-	QCBE_EXPECTED_VALUE,
-	QCBE_BAD_OBJECT_BEGIN,
-} QCB_Errors;
-
-#if 0
-
-static inline is_space(char c)
+static inline int is_space(char c)
 {
 	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
 
-static void skip_space(char **cursor)
+static inline void skip_space(char **cursor)
 {
-	while (is_space(**cursor)) {
-		++*cursor;
-	}
+	while (is_space(**cursor))
+	{	++*cursor;  }
 }
 
-// Only used by read_string
-static void push_string(char **string, char c,
-	unsigned int *length, unsigned int *capacity)
-{
-	if (++(*length) > *capacity) {
-		*capacity += 64;
-		*string = realloc(*string, *capacity);
-	}
-	(*string)[*length - 1] = c;
-}
-
-static int read_string(char **cursor, char **string)
-{
-	// Clear string
-	*string = NULL;
-	unsigned int length = 0;
-	unsigned int capacity = 0;
-	for (;;) {
-		char c = *++*cursor;
-		if (c == '\\') {
-			// Handle escape sequences
-			c = *++*cursor;
-			switch (c) {
-			case '\"': goto push_char;
-			case '\\': goto push_char;
-			case '/':  goto push_char;
-			case 'b': c = '\b'; goto push_char;
-			case 'f': c = '\f'; goto push_char;
-			case 't': c = '\t'; goto push_char;
-			case 'r': c = '\r'; goto push_char;
-			case 'n': c = '\n'; goto push_char;
-			case 'u':
-				break;
-			default:
-				Log_Warning("JSON: Bad escape sequence.");
-				return -1;
-			}
-		} else if (c == '\"') {
-			break;
-		} else if (c == '\0') {
-			Log_Warning("JSON: String does not end!");
-			return -1;
-		} else {
-		push_char:
-			push_string(string, c, &length, &capacity);
-		}
-	}
-	// Null terminate
-	push_string(string, '\0', &length, &capacity);
-	return 0;
-}
-
-#endif
-
-static int is_digit(char c)
+static inline int is_base10(char c)
 {
 	return c >= '0' && c <= '9';
+}
+
+#if 0
+static inline int is_base16(char c)
+{
+	return (c >= '0' && c <= '9')
+	    || (c >= 'a' && c <= 'f')
+	    || (c >= 'A' && c <= 'F');
+}
+#endif
+
+/* static */ int read_string(char **cursor, qcb_handler_t *handler)
+{
+	++*cursor;
+	char *begin = *cursor, *write = begin;
+	for (;;)
+	{	char c = **cursor;
+		++*cursor;
+		if (c == '\\')
+		{	// Handle escape sequences
+			c = **cursor;
+			++*cursor;
+			switch (c) {
+				case '\"': case '\\': case '/':
+					break;
+				case 'b': c = '\b'; break;
+				case 'f': c = '\f'; break;
+				case 't': c = '\t'; break;
+				case 'r': c = '\r'; break;
+				case 'n': c = '\n'; break;
+				case 'u': // BUG returns STRING_DOESNT_END on \u0000
+				{	int pt = 0; // OPT all of pt parsing
+					for (int i = 0; i < 4; ++i)
+					{	char c = **cursor;
+						++*cursor;
+						int d;
+						if (c >= '0' && c <= '9')
+						{	d = c - '0';  }
+						else if (c >= 'a' && c <= 'f')
+						{	d = c - 'a' + 0x0a;  }
+						else if (c >= 'A' && c <= 'F')
+						{	d = c - 'A' + 0x0a;  }
+						else
+						{	return QCBE_BAD_UNICODE;  }
+						pt = pt * 16 + d;  }
+					if      (pt           < 0x000080)
+					{	*write++ = pt;  }
+					else if (pt           < 0x000800)
+					{	*write++ = 192 + pt / 64;
+						*write++ = 128 + pt % 64;  }
+					else if (pt - 0xd800u < 0x000800)
+					{	return QCBE_BAD_UNICODE;  }
+					else if (pt           < 0x010000) 
+					{	*write++ = 224 + pt / 4096;
+						*write++ = 128 + pt / 64 % 64;
+						*write++ = 128 + pt % 64;  }
+					else if (pt           < 0x110000)
+					{	*write++ = 240 + pt / 262144;
+						*write++ = 128 + pt / 4096 % 64;
+						*write++ = 128 + pt / 64 % 64;
+						*write++ = 128 + pt % 64;  }
+					else
+					{	return QCBE_BAD_UNICODE;  }
+					continue;  }
+				default:
+					return QCBE_BAD_ESCAPE_SEQUENCE;  }  }
+		else if (c == '\"')
+		{	break;  }
+		else if (c == '\0')
+		{	return QCBE_STRING_DOESNT_END;  }
+		*write++ = c;  }
+	*write = '\0';
+	handler->string_func(handler->userdata, begin);
+	return QCBE_OK;
 }
 
 static double fast_pow10(short exp) // OPT
@@ -180,7 +171,7 @@ static double fast_pow10(short exp) // OPT
  * performance.
  */
 
-/* static */ int read_number(char **cursor, double *float_, int64_t *int_)
+/* static */ int read_number(char **cursor, qcb_handler_t *handler)
 {
 	int64_t digits;
 	int dig_sign, exp_sign;
@@ -191,21 +182,21 @@ static double fast_pow10(short exp) // OPT
 		*cursor += isMinus;
 		dig_sign = 1 - 2 * isMinus;  }
 	{	// PARSE INTEGER PART
-		if (!is_digit(**cursor))
+		if (!is_base10(**cursor))
 		{	return QCBE_BAD_NUMBER_BEGIN;  }
 		digits = **cursor - '0';
 		++*cursor;
 		if (digits != 0)
-		{	while (is_digit(**cursor))
+		{	while (is_base10(**cursor))
 			{	digits = digits * 10 + **cursor - '0';
 				++*cursor;  }  }  }
 	if (**cursor == '.')
 	{	// PARSE FRACTIONAL PART
 		++*cursor;
 		// PARSE DIGITS
-		if (!is_digit(**cursor))
+		if (!is_base10(**cursor))
 		{	return QCBE_BAD_NUMBER_BEGIN;  }
-		while (is_digit(**cursor))
+		while (is_base10(**cursor))
 		{	digits = digits * 10 + **cursor - '0';
 			++*cursor;
 			--exp;  }  }
@@ -220,20 +211,20 @@ static double fast_pow10(short exp) // OPT
 			*cursor += isMinus | isPlus;
 			exp_sign = 1 - 2 * isMinus;  }
 		{	// PARSE INTEGER
-			if (!is_digit(**cursor))
+			if (!is_base10(**cursor))
 			{	return QCBE_BAD_NUMBER_BEGIN;  }
 			usr_exp = **cursor - '0';
 			++*cursor;
-			while (is_digit(**cursor))
+			while (is_base10(**cursor))
 			{	usr_exp = usr_exp * 10 + **cursor - '0';
 				++*cursor;  }
 			exp += usr_exp * exp_sign;  }  }
 	{	// ASSEMBLE NUMBER
 		double factor = fast_pow10(exp);
 		// if ()
-		{	*int_ = digits * factor;  }
+		{	handler->int_func  (handler->userdata, digits * factor);  }
 		// else
-		{	*float_ = digits * factor;  }  }
+		{	handler->float_func(handler->userdata, digits * factor);  }  }
 	return QCBE_OK;
 }
 
@@ -329,14 +320,17 @@ static int read_keyword(char **cursor)
 	if (strncmp(*cursor, "null", 4)) {
 		*type = JSON_NULL;
 		*cursor += 4;
+			hl.bool_func();
 	} else if (strncmp(*cursor, "true", 4)) {
 		*type = JSON_BOOL;
 		value->bool_ = true;
 		*cursor += 4;
+			hl.bool_func();
 	} else if (strncmp(*cursor, "false", 5)) {
 		*type = JSON_BOOL;
 		value->bool_ = false;
 		*cursor += 5;
+			hl.bool_func();
 	} else {
 		return QCBE_UNKNOWN_KEYWORD;
 	}
@@ -355,9 +349,7 @@ static int read_value(char **cursor, handler_t const hl)
 		case '-':
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
-			r = read_number(cursor, type, value);
-			hl.number_func();
-			return r;
+			return read_number(cursor, type, value);
 		case '{':
 			hl.object_func();
 			r = read_object(cursor, &value->object);
@@ -369,9 +361,7 @@ static int read_value(char **cursor, handler_t const hl)
 			cb_close();
 			return r;
 		case 'n': case 't': case 'f':
-			r = read_keyword(cursor, type, value);
-			hl.bool_func();
-			return r;
+			return read_keyword(cursor, type, value);
 		default:
 			return QCBE_EXPECTED_VALUE;
 	}
