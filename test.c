@@ -5,9 +5,7 @@
 
 #include "quickcj.h"
 
-int read_number(char **cursor, double *float_, int64_t *int_);
-int read_string(char **cursor, qcb_handler_t *handler);
-int read_keyword(char **cursor, qcb_handler_t *handler);
+int read_value(char **cursor, qcb_handler_t *handler);
 
 #if 0
 static void int_number(char const *arg)
@@ -36,31 +34,19 @@ static void string_handler(void *userdata, char const *string, size_t length)
 	printf("\" (length: %lu)\n", length);
 }
 
-static void int_string(char const *arg)
-{
-	qcb_handler_t handler = {.string_func = string_handler};
-	size_t length = strlen(arg) + 1;
-	char *data = malloc(length), *cursor = data;
-	memcpy(data, arg, length);
-	int r = read_string(&cursor, &handler);
-	printf("r      = %d\n", r);
-	free(data);
-}
-
 static void bool_handler(void *userdata, int value)
 {
 	printf("bool   = %s\n", value ? "true" : "false");
 }
 
-static void int_keyword(char const *arg)
+static void array_handler(void *userdata)
 {
-	qcb_handler_t handler = {.bool_func = bool_handler};
-	size_t length = strlen(arg) + 1;
-	char *data = malloc(length), *cursor = data;
-	memcpy(data, arg, length);
-	int r = read_keyword(&cursor, &handler);
-	printf("r      = %d\n", r);
-	free(data);
+	printf("array  = {\n");
+}
+
+static void close_handler(void *userdata)
+{
+	printf("}\n");
 }
 
 int main(int argc, char *argv[])
@@ -68,9 +54,17 @@ int main(int argc, char *argv[])
 	if (argc != 2) {
 		return EXIT_FAILURE;
 	}
-	// int_number(argv[1]);
-	// int_string(argv[1]);
-	int_keyword(argv[1]);
+	size_t copyLength = strlen(argv[1]) + 1;
+	char *copy = malloc(copyLength), *cursor = copy;
+	memcpy(copy, argv[1], copyLength);
+	qcb_handler_t handler =
+	{	.string_func = string_handler,
+		.bool_func   = bool_handler,
+		.array_func  = array_handler,
+		.close_func  = close_handler  };
+	int r = read_value(&cursor, &handler);
+	printf("r      = %d\n", r);
+	free(copy);
 	return EXIT_SUCCESS;
 }
 

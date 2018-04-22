@@ -281,43 +281,39 @@ static int read_object(char **cursor)
 	return 0;
 }
 
-static int read_array(char **cursor)
+#endif
+
+/* static */ int read_value(char **cursor, qcb_handler_t *handler);
+
+int read_array(char **cursor, qcb_handler_t *handler)
 {
-	int r;
 	// Skip opening '['
 	++*cursor;
+	handler->array_func(handler->userdata);
 	// Check if empty
 	skip_space(cursor);
-	if (**cursor == ']') {
-		++*cursor;
-		return QCBE_OK;
-	}
+	if (**cursor == ']')
+	{	++*cursor;
+		return QCBE_OK;  }
 	// Parse all elements
-	for (;;) {
-		// Parse value
-		r = read_value(cursor);
-		if (r != QCBE_OK) {
-			return r;
-		}
-		hl.value_func();
+	for (;;)
+	{	// Parse value
+		int r = read_value(cursor, handler);
+		if (r != QCBE_OK)
+		{	return r;  }
 		// Parse comma or ending ']'
 		skip_space(cursor);
-		if (**cursor == ',') {
-			++*cursor;
-			continue;
-		} else if (**cursor == ']') {
-			++*cursor;
-			break;
-		} else {
-			return QCBE_BAD_ARRAY_SEPARATOR;
-		}
-	}
-	// Send close
-	cb_close();
-	return QCBE_OK;
+		char c = **cursor;
+		++*cursor;
+		if (c == ',')
+		{	continue;  }
+		else if (c == ']')
+		{	// Send close
+			handler->close_func(handler->userdata);
+			return QCBE_OK;  }
+		else
+		{	return QCBE_BAD_ARRAY_SEPARATOR;  }  }
 }
-
-#endif
 
 int is_eokw(char c)
 {
@@ -349,37 +345,31 @@ int read_keyword(char **cursor, qcb_handler_t *handler)
 	{	return QCBE_UNKNOWN_KEYWORD;  }
 }
 
-#if 0
-
-static int read_value(char **cursor, handler_t const hl)
+int read_value(char **cursor, qcb_handler_t *handler)
 {
-	int r;
 	skip_space(cursor);
 	switch (**cursor) {
 		case '\"':
-			r = read_string(cursor, &value->string);
-			hl.string_func();
-			return r;
+			return read_string(cursor, handler);
 		case '-':
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
-			return read_number(cursor, type, value);
-		case '{':
+			return read_number(cursor, handler);
+		/*case '{':
 			hl.object_func();
 			r = read_object(cursor, &value->object);
 			hl.close_func();
-			return r;
+			return r;*/
 		case '[':
-			hl.array_func();
-			r = read_array(cursor, &value->array);
-			cb_close();
-			return r;
+			return read_array(cursor, handler);
 		case 'n': case 't': case 'f':
-			return read_keyword(cursor, type, value);
+			return read_keyword(cursor, handler);
 		default:
 			return QCBE_EXPECTED_VALUE;
 	}
 }
+
+#if 0
 
 int qcj_read(char const *source)
 {
