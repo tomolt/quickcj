@@ -5,7 +5,7 @@
 
 #include "quickcj.h"
 
-int read_value(char **cursor, qcb_handler_t *handler);
+int qcj_read(char *, qcb_handler_t *);
 
 #if 0
 static void int_number(char const *arg)
@@ -20,6 +20,26 @@ static void int_number(char const *arg)
 	printf("atof() = %f\natol() = %ld\n", atof_, atol_);
 }
 #endif
+
+static void print_json_string(char const *string, size_t length)
+{
+	putchar('\"');
+	for (size_t i = 0; i < length; ++i) {
+		char c = string[i];
+		if (c < 0x20) {
+			c = '?';
+		}
+		putchar(c);
+	}
+	printf("\" (length: %lu)", length);
+}
+
+static void key_handler(void *userdata, char const *string, size_t length)
+{
+	printf("key    = ");
+	print_json_string(string, length);
+	printf("\n");
+}
 
 static void string_handler(void *userdata, char const *string, size_t length)
 {
@@ -44,6 +64,12 @@ static void array_handler(void *userdata)
 	printf("array  = {\n");
 }
 
+
+static void object_handler(void *userdata)
+{
+	printf("object = {\n");
+}
+
 static void close_handler(void *userdata)
 {
 	printf("}\n");
@@ -58,11 +84,13 @@ int main(int argc, char *argv[])
 	char *copy = malloc(copyLength), *cursor = copy;
 	memcpy(copy, argv[1], copyLength);
 	qcb_handler_t handler =
-	{	.string_func = string_handler,
+	{	.key_func    = key_handler,
+		.string_func = string_handler,
 		.bool_func   = bool_handler,
 		.array_func  = array_handler,
+		.object_func = object_handler,
 		.close_func  = close_handler  };
-	int r = read_value(&cursor, &handler);
+	int r = qcj_read(cursor, &handler);
 	printf("r      = %d\n", r);
 	free(copy);
 	return EXIT_SUCCESS;
