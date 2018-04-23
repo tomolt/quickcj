@@ -7,20 +7,6 @@
 
 int qcj_read(char *, qcb_handler_t *);
 
-#if 0
-static void int_number(char const *arg)
-{
-	double float_ = 0.0;
-	int64_t int_ = 0LL;
-	char *cursor = arg;
-	int r = read_number(&cursor, &float_, &int_);
-	printf("r      = %d\nfloat_ = %f\nint_   = %ld\n", r, float_, int_);
-	double atof_ = atof(arg);
-	int64_t atol_ = atol(arg);
-	printf("atof() = %f\natol() = %ld\n", atof_, atol_);
-}
-#endif
-
 static void print_json_string(char const *string, size_t length)
 {
 	putchar('\"');
@@ -54,6 +40,16 @@ static void string_handler(void *userdata, char const *string, size_t length)
 	printf("\" (length: %lu)\n", length);
 }
 
+static void int_handler(void *userdata, int64_t value)
+{
+	printf("int    = %ld\n", value);
+}
+
+static void float_handler(void *userdata, double value)
+{
+	printf("float  = %f\n", value);
+}
+
 static void bool_handler(void *userdata, int value)
 {
 	printf("bool   = %s\n", value ? "true" : "false");
@@ -63,7 +59,6 @@ static void array_handler(void *userdata)
 {
 	printf("array  = {\n");
 }
-
 
 static void object_handler(void *userdata)
 {
@@ -86,6 +81,8 @@ int main(int argc, char *argv[])
 	qcb_handler_t handler =
 	{	.key_func    = key_handler,
 		.string_func = string_handler,
+		.int_func    = int_handler,
+		.float_func  = float_handler,
 		.bool_func   = bool_handler,
 		.array_func  = array_handler,
 		.object_func = object_handler,

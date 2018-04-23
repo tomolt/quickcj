@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 
 #include "quickcj.h"
 
@@ -172,37 +173,46 @@ static double fast_pow10(short exp) // OPT
 	return constants[exp + 323];
 }
 
-/* Breaks down after:
- * 1111111111111111111
- * I64 Max:
- * 9223372036854775807
- * Changing the type of digits
- * to double solves this, but
- * compromises precision of
- * integer numbers, and also
- * probably negatively impacts
- * performance.
- */
-
 static int read_number(char **cursor, qcb_handler_t *handler)
 {
-	int64_t digits;
-	int dig_sign, exp_sign;
-	short exp = 0, usr_exp = 0;
-	{	// PARSE MINUS SIGN
-		// TODO better type than int
-		int isMinus = (**cursor == '-');
-		*cursor += isMinus;
-		dig_sign = 1 - 2 * isMinus;  }
-	{	// PARSE INTEGER PART
-		if (!is_base10(**cursor))
-		{	return QCBE_BAD_NUMBER_BEGIN;  }
-		digits = **cursor - '0';
-		++*cursor;
-		if (digits != 0)
-		{	while (is_base10(**cursor))
-			{	digits = digits * 10 + **cursor - '0';
-				++*cursor;  }  }  }
+	int64_t int_digs;
+	int digs_sign;
+	double flt_digs;
+	int exp_sign;
+	short exp = 0;
+	short usr_exp;
+	// INT PATH
+	// PARSE MINUS SIGN
+	// TODO better type than int
+	int isMinus = (**cursor == '-');
+	*cursor += isMinus;
+	digs_sign = 1 - 2 * isMinus;
+	// PARSE INTEGER PART
+	if (!is_base10(**cursor))
+	{	return QCBE_BAD_NUMBER_BEGIN;  }
+	int_digs = **cursor - '0';
+	++*cursor;
+	if (int_digs != 0)
+	{	while (is_base10(**cursor))
+		{ 	if (int_digs >= LONG_MAX / 10)
+			{	flt_digs = int_digs;
+				goto float_extra_digits;  }
+			int_digs = int_digs * 10 + **cursor - '0';
+			++*cursor;  }  }
+	if (**cursor == '.' || **cursor == 'e' || **cursor == 'E') // OPT
+	{	flt_digs = int_digs;
+		goto float_after_digits;  }
+	// EMIT INTEGER EVENT & RETURN
+	handler->int_func(handler->userdata, int_digs * digs_sign);
+	return QCBE_OK;
+	
+	// FLOAT PATH
+float_extra_digits:
+	do
+	{	flt_digs = flt_digs * 10.0 + (double)(**cursor - '0');
+		++*cursor;  }
+	while (is_base10(**cursor));
+float_after_digits:
 	if (**cursor == '.')
 	{	// PARSE FRACTIONAL PART
 		++*cursor;
@@ -210,34 +220,30 @@ static int read_number(char **cursor, qcb_handler_t *handler)
 		if (!is_base10(**cursor))
 		{	return QCBE_BAD_NUMBER_BEGIN;  }
 		while (is_base10(**cursor))
-		{	digits = digits * 10 + **cursor - '0';
+		{	flt_digs = flt_digs * 10 + **cursor - '0';
 			++*cursor;
 			--exp;  }  }
-	digits *= dig_sign;
 	if ((**cursor | 0x20) == 'e')
 	{	// PARSE EXPONENT
 		++*cursor;
-		{	// PARSE SIGN
-			// TODO better type than int
-			int isMinus = (**cursor == '-');
-			int isPlus  = (**cursor == '+');
-			*cursor += isMinus | isPlus;
-			exp_sign = 1 - 2 * isMinus;  }
-		{	// PARSE INTEGER
-			if (!is_base10(**cursor))
-			{	return QCBE_BAD_NUMBER_BEGIN;  }
-			usr_exp = **cursor - '0';
-			++*cursor;
-			while (is_base10(**cursor))
-			{	usr_exp = usr_exp * 10 + **cursor - '0';
-				++*cursor;  }
-			exp += usr_exp * exp_sign;  }  }
-	{	// ASSEMBLE NUMBER
-		double factor = fast_pow10(exp);
-		// if ()
-		{	handler->int_func  (handler->userdata, digits * factor);  }
-		// else
-		{	handler->float_func(handler->userdata, digits * factor);  }  }
+		// PARSE SIGN
+		// TODO better type than int
+		int isMinus = (**cursor == '-');
+		int isPlus  = (**cursor == '+');
+		*cursor += isMinus | isPlus;
+		exp_sign = 1 - 2 * isMinus;
+		// PARSE INTEGER
+		if (!is_base10(**cursor))
+		{	return QCBE_BAD_NUMBER_BEGIN;  }
+		usr_exp = **cursor - '0';
+		++*cursor;
+		while (is_base10(**cursor))
+		{	usr_exp = usr_exp * 10 + **cursor - '0';
+			++*cursor;  }
+		exp += usr_exp * exp_sign;  }
+	// EMIT FLOAT MEVENT & RETURN
+	double factor = digs_sign * fast_pow10(exp);
+	handler->float_func(handler->userdata, flt_digs * factor);
 	return QCBE_OK;
 }
 
