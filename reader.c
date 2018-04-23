@@ -19,89 +19,111 @@ static inline int is_base10(char c)
 
 static inline void skip_space(char **cursor)
 {
-	while (is_space(**cursor))
-	{	++*cursor;  }
+	while (is_space(**cursor)) {
+		++*cursor;
+	}
 }
 
 static int read_keyword(char **cursor, qcb_handler_t *handler)
 {
 	// OPT entire function
-	if (strncmp(*cursor, "null", 4) == 0)
-	{	*cursor += 4;
+	if (strncmp(*cursor, "null", 4) == 0) {
+		*cursor += 4;
 		handler->bool_func(handler->userdata, 0);
-		return QCBE_OK;  } // FIXME
-	else if (strncmp(*cursor, "true", 4) == 0)
-	{	*cursor += 4;
+		return QCBE_OK;
+	} // FIXME
+	else if (strncmp(*cursor, "true", 4) == 0) {
+		*cursor += 4;
 		handler->bool_func(handler->userdata, 1);
-		return QCBE_OK;  }
-	else if (strncmp(*cursor, "false", 5) == 0)
-	{	*cursor += 5;
+		return QCBE_OK;
+	} else if (strncmp(*cursor, "false", 5) == 0) {
+		*cursor += 5;
 		handler->bool_func(handler->userdata, 0);
-		return QCBE_OK;  }
-	else
-	{	return QCBE_UNKNOWN_KEYWORD;  }
+		return QCBE_OK;
+	} else {
+		return QCBE_UNKNOWN_KEYWORD;
+	}
 }
 
 static int read_string(char **cursor, char **value, size_t *length)
 {
 	++*cursor;
 	char *begin = *cursor, *write = begin;
-	for (;;)
-	{	char c = **cursor;
+	for (;;) {
+		char c = **cursor;
 		++*cursor;
-		if (c == '\\')
-		{	// Handle escape sequences
+		if (c == '\\') {
+			// Handle escape sequences
 			c = **cursor;
 			++*cursor;
 			switch (c) {
-				case '\"': case '\\': case '/':
-					break;
-				case 'b': c = '\b'; break;
-				case 'f': c = '\f'; break;
-				case 't': c = '\t'; break;
-				case 'r': c = '\r'; break;
-				case 'n': c = '\n'; break;
-				case 'u':
-				{	int pt = 0; // OPT all of pt parsing
-					for (int i = 0; i < 4; ++i)
-					{	char c = **cursor;
-						++*cursor;
-						int d;
-						if (c >= '0' && c <= '9')
-						{	d = c - '0';  }
-						else if (c >= 'a' && c <= 'f')
-						{	d = c - 'a' + 0x0a;  }
-						else if (c >= 'A' && c <= 'F')
-						{	d = c - 'A' + 0x0a;  }
-						else
-						{	return QCBE_BAD_UNICODE;  }
-						pt = pt * 16 + d;  }
-					if      (pt           < 0x000080)
-					{	*write++ = pt;  }
-					else if (pt           < 0x000800)
-					{	*write++ = 192 + pt / 64;
-						*write++ = 128 + pt % 64;  }
-					else if (pt - 0xd800u < 0x000800)
-					{	return QCBE_BAD_UNICODE;  }
-					else if (pt           < 0x010000) 
-					{	*write++ = 224 + pt / 4096;
-						*write++ = 128 + pt / 64 % 64;
-						*write++ = 128 + pt % 64;  }
-					else if (pt           < 0x110000)
-					{	*write++ = 240 + pt / 262144;
-						*write++ = 128 + pt / 4096 % 64;
-						*write++ = 128 + pt / 64 % 64;
-						*write++ = 128 + pt % 64;  }
-					else
-					{	return QCBE_BAD_UNICODE;  }
-					continue;  }
-				default:
-					return QCBE_BAD_ESCAPE_SEQUENCE;  }  }
-		else if (c == '\"')
-		{	break;  }
-		else if (c == '\0')
-		{	return QCBE_STRING_DOESNT_END;  }
-		*write++ = c;  }
+			case '\"':
+			case '\\':
+			case '/':
+				break;
+			case 'b':
+				c = '\b';
+				break;
+			case 'f':
+				c = '\f';
+				break;
+			case 't':
+				c = '\t';
+				break;
+			case 'r':
+				c = '\r';
+				break;
+			case 'n':
+				c = '\n';
+				break;
+			case 'u': {
+				int pt = 0; // OPT all of pt parsing
+				for (int i = 0; i < 4; ++i) {
+					char c = **cursor;
+					++*cursor;
+					int d;
+					if (c >= '0' && c <= '9') {
+						d = c - '0';
+					} else if (c >= 'a' && c <= 'f') {
+						d = c - 'a' + 0x0a;
+					} else if (c >= 'A' && c <= 'F') {
+						d = c - 'A' + 0x0a;
+					} else {
+						return QCBE_BAD_UNICODE;
+					}
+					pt = pt * 16 + d;
+				}
+				if        (pt           < 0x000080) {
+					*write++ = pt;
+				} else if (pt           < 0x000800) {
+					*write++ = 192 + pt / 64;
+					*write++ = 128 + pt % 64;
+				} else if (pt - 0xd800u < 0x000800) {
+					return QCBE_BAD_UNICODE;
+				} else if (pt           < 0x010000) {
+					*write++ = 224 + pt / 4096;
+					*write++ = 128 + pt / 64 % 64;
+					*write++ = 128 + pt % 64;
+				} else if (pt           < 0x110000) {
+					*write++ = 240 + pt / 262144;
+					*write++ = 128 + pt / 4096 % 64;
+					*write++ = 128 + pt / 64 % 64;
+					*write++ = 128 + pt % 64;
+				} else {
+					return QCBE_BAD_UNICODE;
+				}
+				continue;
+			}
+			default:
+				return QCBE_BAD_ESCAPE_SEQUENCE;
+			}
+		} else if (c == '\"') {
+			break;
+		} else if (c == '\0') {
+			return QCBE_STRING_DOESNT_END;
+		}
+		*write++ = c;
+	}
 	*write = '\0';
 	*value = begin;
 	*length = write - begin;
@@ -110,12 +132,13 @@ static int read_string(char **cursor, char **value, size_t *length)
 
 static double fast_pow10(short exp) // OPT
 {
-	if (exp > 308)
-	{	return INFINITY;  }
-	else if (exp < -323)
-	{	return 0.0;  }
-	static const double constants[] =
-	{	1e-323,1e-322,1e-321,1e-320,1e-319,1e-318,1e-317,1e-316,1e-315,1e-314,
+	if (exp > 308) {
+		return INFINITY;
+	} else if (exp < -323) {
+		return 0.0;
+	}
+	static const double constants[] = {
+		1e-323,1e-322,1e-321,1e-320,1e-319,1e-318,1e-317,1e-316,1e-315,1e-314,
 		1e-313,1e-312,1e-311,1e-310,1e-309,1e-308,1e-307,1e-306,1e-305,1e-304,
 		1e-303,1e-302,1e-301,1e-300,1e-299,1e-298,1e-297,1e-296,1e-295,1e-294,
 		1e-293,1e-292,1e-291,1e-290,1e-289,1e-288,1e-287,1e-286,1e-285,1e-284,
@@ -169,7 +192,8 @@ static double fast_pow10(short exp) // OPT
 		1e261,1e262,1e263,1e264,1e265,1e266,1e267,1e268,1e269,1e270,1e271,1e272,
 		1e273,1e274,1e275,1e276,1e277,1e278,1e279,1e280,1e281,1e282,1e283,1e284,
 		1e285,1e286,1e287,1e288,1e289,1e290,1e291,1e292,1e293,1e294,1e295,1e296,
-		1e297,1e298,1e299,1e300,1e301,1e302,1e303,1e304,1e305,1e306,1e307,1e308  };
+		1e297,1e298,1e299,1e300,1e301,1e302,1e303,1e304,1e305,1e306,1e307,1e308
+	};
 	return constants[exp + 323];
 }
 
@@ -181,6 +205,7 @@ static int read_number(char **cursor, qcb_handler_t *handler)
 	int exp_sign;
 	short exp = 0;
 	short usr_exp;
+
 	// INT PATH
 	// PARSE MINUS SIGN
 	// TODO better type than int
@@ -188,43 +213,51 @@ static int read_number(char **cursor, qcb_handler_t *handler)
 	*cursor += isMinus;
 	digs_sign = 1 - 2 * isMinus;
 	// PARSE INTEGER PART
-	if (!is_base10(**cursor))
-	{	return QCBE_BAD_NUMBER_BEGIN;  }
+	if (!is_base10(**cursor)) {
+		return QCBE_BAD_NUMBER_BEGIN;
+	}
 	int_digs = **cursor - '0';
 	++*cursor;
-	if (int_digs != 0)
-	{	while (is_base10(**cursor))
-		{ 	if (int_digs >= LONG_MAX / 10)
-			{	flt_digs = int_digs;
-				goto float_extra_digits;  }
+	if (int_digs != 0) {
+		while (is_base10(**cursor)) {
+			if (int_digs >= LONG_MAX / 10) {
+				flt_digs = int_digs;
+				goto float_extra_digits;
+			}
 			int_digs = int_digs * 10 + **cursor - '0';
-			++*cursor;  }  }
-	if (**cursor == '.' || **cursor == 'e' || **cursor == 'E') // OPT
-	{	flt_digs = int_digs;
-		goto float_after_digits;  }
+			++*cursor;
+		}
+	}
+	if (**cursor == '.' || **cursor == 'e' || **cursor == 'E') { // OPT
+		flt_digs = int_digs;
+		goto float_after_digits;
+	}
 	// EMIT INTEGER EVENT & RETURN
 	handler->int_func(handler->userdata, int_digs * digs_sign);
 	return QCBE_OK;
-	
+
 	// FLOAT PATH
 float_extra_digits:
-	do
-	{	flt_digs = flt_digs * 10.0 + (double)(**cursor - '0');
-		++*cursor;  }
-	while (is_base10(**cursor));
+	do {
+		flt_digs = flt_digs * 10.0 + (double)(**cursor - '0');
+		++*cursor;
+	} while (is_base10(**cursor));
 float_after_digits:
-	if (**cursor == '.')
-	{	// PARSE FRACTIONAL PART
+	if (**cursor == '.') {
+		// PARSE FRACTIONAL PART
 		++*cursor;
 		// PARSE DIGITS
-		if (!is_base10(**cursor))
-		{	return QCBE_BAD_NUMBER_BEGIN;  }
-		while (is_base10(**cursor))
-		{	flt_digs = flt_digs * 10 + **cursor - '0';
+		if (!is_base10(**cursor)) {
+			return QCBE_BAD_NUMBER_BEGIN;
+		}
+		while (is_base10(**cursor)) {
+			flt_digs = flt_digs * 10 + **cursor - '0';
 			++*cursor;
-			--exp;  }  }
-	if ((**cursor | 0x20) == 'e')
-	{	// PARSE EXPONENT
+			--exp;
+		}
+	}
+	if ((**cursor | 0x20) == 'e') {
+		// PARSE EXPONENT
 		++*cursor;
 		// PARSE SIGN
 		// TODO better type than int
@@ -233,15 +266,18 @@ float_after_digits:
 		*cursor += isMinus | isPlus;
 		exp_sign = 1 - 2 * isMinus;
 		// PARSE INTEGER
-		if (!is_base10(**cursor))
-		{	return QCBE_BAD_NUMBER_BEGIN;  }
+		if (!is_base10(**cursor)) {
+			return QCBE_BAD_NUMBER_BEGIN;
+		}
 		usr_exp = **cursor - '0';
 		++*cursor;
-		while (is_base10(**cursor))
-		{	usr_exp = usr_exp * 10 + **cursor - '0';
-			++*cursor;  }
-		exp += usr_exp * exp_sign;  }
-	// EMIT FLOAT MEVENT & RETURN
+		while (is_base10(**cursor)) {
+			usr_exp = usr_exp * 10 + **cursor - '0';
+			++*cursor;
+		}
+		exp += usr_exp * exp_sign;
+	}
+	// EMIT FLOAT EVENT & RETURN
 	double factor = digs_sign * fast_pow10(exp);
 	handler->float_func(handler->userdata, flt_digs * factor);
 	return QCBE_OK;
@@ -255,27 +291,31 @@ static int read_array(char **cursor, qcb_handler_t *handler)
 	handler->array_func(handler->userdata);
 	// Check if empty
 	skip_space(cursor);
-	if (**cursor == ']')
-	{	++*cursor;
-		return QCBE_OK;  }
+	if (**cursor == ']') {
+		++*cursor;
+		return QCBE_OK;
+	}
 	// Parse all elements
-	for (;;)
-	{	// Parse value
+	for (;;) {
+		// Parse value
 		int r = read_value(cursor, handler);
-		if (r != QCBE_OK)
-		{	return r;  }
+		if (r != QCBE_OK) {
+			return r;
+		}
 		// Parse comma or ending ']'
 		skip_space(cursor);
 		char c = **cursor;
 		++*cursor;
-		if (c == ',')
-		{	continue;  }
-		else if (c == ']')
-		{	// Send close
+		if (c == ',') {
+			continue;
+		} else if (c == ']') {
+			// Send close
 			handler->close_func(handler->userdata);
-			return QCBE_OK;  }
-		else
-		{	return QCBE_BAD_ARRAY_SEPARATOR;  }  }
+			return QCBE_OK;
+		} else {
+			return QCBE_BAD_ARRAY_SEPARATOR;
+		}
+	}
 }
 
 static int read_object(char **cursor, qcb_handler_t *handler)
@@ -286,62 +326,85 @@ static int read_object(char **cursor, qcb_handler_t *handler)
 	handler->object_func(handler->userdata);
 	// Check if empty
 	skip_space(cursor);
-	if (**cursor == '}')
-	{	++*cursor;
-		return QCBE_OK;  }
+	if (**cursor == '}') {
+		++*cursor;
+		return QCBE_OK;
+	}
 	// Parse all members
-	for (;;)
-	{	// Parse name
+	for (;;) {
+		// Parse name
 		char *name;
 		size_t nameLength;
 		int r = read_string(cursor, &name, &nameLength);
-		if (r != QCBE_OK)
-		{	return r;  }
+		if (r != QCBE_OK) {
+			return r;
+		}
 		handler->key_func(handler->userdata, name, nameLength);
 		// Parse separating colon
 		skip_space(cursor);
-		if (**cursor != ':')
-		{	return QCBE_KEY_VALUE_NEEDS_COLON;  }
+		if (**cursor != ':') {
+			return QCBE_KEY_VALUE_NEEDS_COLON;
+		}
 		++*cursor;
 		// Parse value
 		r = read_value(cursor, handler);
-		if (r != QCBE_OK)
-		{	return r;  }
+		if (r != QCBE_OK) {
+			return r;
+		}
 		// Parse comma or ending '}'
 		skip_space(cursor);
 		char c = **cursor;
 		++*cursor;
-		if (c == ',')
-		{	continue;  }
-		else if (c == '}')
-		{	handler->close_func(handler->userdata);
-			return QCBE_OK;  }
-		else
-		{	return QCBE_BAD_OBJECT_SEPARATOR;  }  }
+		if (c == ',') {
+			continue;
+		} else if (c == '}') {
+			handler->close_func(handler->userdata);
+			return QCBE_OK;
+		} else {
+			return QCBE_BAD_OBJECT_SEPARATOR;
+		}
+	}
 }
 
 static int read_value(char **cursor, qcb_handler_t *handler)
 {
 	skip_space(cursor);
-	switch (**cursor)
-	{	case '\"':
-		{	char *value;
-			size_t length;
-			int r = read_string(cursor, &value, &length);
-			handler->string_func(handler->userdata, value, length);
-			return r;  }
-		case '-':
-		case '0': case '1': case '2': case '3': case '4':
-		case '5': case '6': case '7': case '8': case '9':
-		{	return read_number(cursor, handler);  }
-		case '{':
-		{	return read_object(cursor, handler);  }
-		case '[':
-		{	return read_array(cursor, handler);  }
-		case 'n': case 't': case 'f':
-		{	return read_keyword(cursor, handler);  }
-		default:
-		{	return QCBE_EXPECTED_VALUE;  }  }
+	switch (**cursor) {
+	case '\"': {
+		char *value;
+		size_t length;
+		int r = read_string(cursor, &value, &length);
+		handler->string_func(handler->userdata, value, length);
+		return r;
+	}
+	case '-':
+	case '0':
+	case '1':
+	case '2':
+	case '3':
+	case '4':
+	case '5':
+	case '6':
+	case '7':
+	case '8':
+	case '9': {
+		return read_number(cursor, handler);
+	}
+	case '{': {
+		return read_object(cursor, handler);
+	}
+	case '[': {
+		return read_array(cursor, handler);
+	}
+	case 'n':
+	case 't':
+	case 'f': {
+		return read_keyword(cursor, handler);
+	}
+	default: {
+		return QCBE_EXPECTED_VALUE;
+	}
+	}
 }
 
 int qcj_read(char *source, qcb_handler_t *handler)

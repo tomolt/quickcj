@@ -30,13 +30,7 @@ static void key_handler(void *userdata, char const *string, size_t length)
 static void string_handler(void *userdata, char const *string, size_t length)
 {
 	printf("string = \"");
-	for (size_t i = 0; i < length; ++i) {
-		char c = string[i];
-		if (c < 0x20) {
-			c = '?';
-		}
-		putchar(c);
-	}
+	print_json_string(string, length);
 	printf("\" (length: %lu)\n", length);
 }
 
@@ -78,15 +72,16 @@ int main(int argc, char *argv[])
 	size_t copyLength = strlen(argv[1]) + 1;
 	char *copy = malloc(copyLength), *cursor = copy;
 	memcpy(copy, argv[1], copyLength);
-	qcb_handler_t handler =
-	{	.key_func    = key_handler,
+	qcb_handler_t handler = {
+		.key_func    = key_handler,
 		.string_func = string_handler,
 		.int_func    = int_handler,
 		.float_func  = float_handler,
 		.bool_func   = bool_handler,
 		.array_func  = array_handler,
 		.object_func = object_handler,
-		.close_func  = close_handler  };
+		.close_func  = close_handler
+	};
 	int r = qcj_read(cursor, &handler);
 	printf("r      = %d\n", r);
 	free(copy);
