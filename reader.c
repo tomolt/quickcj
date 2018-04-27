@@ -5,7 +5,7 @@
 
 #include "quickcj.h"
 
-static int read_value(char **cursor, qcb_handler_t *handler);
+static int read_value(char **cursor, qcj_handler_t *handler);
 
 static inline int is_space(char c)
 {
@@ -24,24 +24,24 @@ static inline void skip_space(char **cursor)
 	}
 }
 
-static int read_keyword(char **cursor, qcb_handler_t *handler)
+static int read_keyword(char **cursor, qcj_handler_t *handler)
 {
 	// OPT entire function
 	if (strncmp(*cursor, "null", 4) == 0) {
 		*cursor += 4;
 		handler->bool_func(handler->userdata, 0);
-		return QCBE_OK;
+		return QCJE_OK;
 	} // FIXME
 	else if (strncmp(*cursor, "true", 4) == 0) {
 		*cursor += 4;
 		handler->bool_func(handler->userdata, 1);
-		return QCBE_OK;
+		return QCJE_OK;
 	} else if (strncmp(*cursor, "false", 5) == 0) {
 		*cursor += 5;
 		handler->bool_func(handler->userdata, 0);
-		return QCBE_OK;
+		return QCJE_OK;
 	} else {
-		return QCBE_UNKNOWN_KEYWORD;
+		return QCJE_UNKNOWN_KEYWORD;
 	}
 }
 
@@ -89,7 +89,7 @@ static int read_string(char **cursor, char **value, size_t *length)
 					} else if (c >= 'A' && c <= 'F') {
 						d = c - 'A' + 0x0a;
 					} else {
-						return QCBE_BAD_UNICODE;
+						return QCJE_BAD_UNICODE;
 					}
 					pt = pt * 16 + d;
 				}
@@ -99,7 +99,7 @@ static int read_string(char **cursor, char **value, size_t *length)
 					*write++ = 192 + pt / 64;
 					*write++ = 128 + pt % 64;
 				} else if (pt - 0xd800u < 0x000800) {
-					return QCBE_BAD_UNICODE;
+					return QCJE_BAD_UNICODE;
 				} else if (pt           < 0x010000) {
 					*write++ = 224 + pt / 4096;
 					*write++ = 128 + pt / 64 % 64;
@@ -110,24 +110,24 @@ static int read_string(char **cursor, char **value, size_t *length)
 					*write++ = 128 + pt / 64 % 64;
 					*write++ = 128 + pt % 64;
 				} else {
-					return QCBE_BAD_UNICODE;
+					return QCJE_BAD_UNICODE;
 				}
 				continue;
 			}
 			default:
-				return QCBE_BAD_ESCAPE_SEQUENCE;
+				return QCJE_BAD_ESCAPE_SEQUENCE;
 			}
 		} else if (c == '\"') {
 			break;
 		} else if (c == '\0') {
-			return QCBE_STRING_DOESNT_END;
+			return QCJE_STRING_DOESNT_END;
 		}
 		*write++ = c;
 	}
 	*write = '\0';
 	*value = begin;
 	*length = write - begin;
-	return QCBE_OK;
+	return QCJE_OK;
 }
 
 static double fast_pow10(short exp) // OPT
@@ -197,7 +197,7 @@ static double fast_pow10(short exp) // OPT
 	return constants[exp + 323];
 }
 
-static int read_number(char **cursor, qcb_handler_t *handler)
+static int read_number(char **cursor, qcj_handler_t *handler)
 {
 	int64_t int_digs;
 	int digs_sign;
@@ -214,7 +214,7 @@ static int read_number(char **cursor, qcb_handler_t *handler)
 	digs_sign = 1 - 2 * isMinus;
 	// PARSE INTEGER PART
 	if (!is_base10(**cursor)) {
-		return QCBE_BAD_NUMBER_BEGIN;
+		return QCJE_BAD_NUMBER_BEGIN;
 	}
 	int_digs = **cursor - '0';
 	++*cursor;
@@ -234,7 +234,7 @@ static int read_number(char **cursor, qcb_handler_t *handler)
 	}
 	// EMIT INTEGER EVENT & RETURN
 	handler->int_func(handler->userdata, int_digs * digs_sign);
-	return QCBE_OK;
+	return QCJE_OK;
 
 	// FLOAT PATH
 float_extra_digits:
@@ -248,7 +248,7 @@ float_after_digits:
 		++*cursor;
 		// PARSE DIGITS
 		if (!is_base10(**cursor)) {
-			return QCBE_BAD_NUMBER_BEGIN;
+			return QCJE_BAD_NUMBER_BEGIN;
 		}
 		while (is_base10(**cursor)) {
 			flt_digs = flt_digs * 10 + **cursor - '0';
@@ -267,7 +267,7 @@ float_after_digits:
 		exp_sign = 1 - 2 * isMinus;
 		// PARSE INTEGER
 		if (!is_base10(**cursor)) {
-			return QCBE_BAD_NUMBER_BEGIN;
+			return QCJE_BAD_NUMBER_BEGIN;
 		}
 		usr_exp = **cursor - '0';
 		++*cursor;
@@ -280,10 +280,10 @@ float_after_digits:
 	// EMIT FLOAT EVENT & RETURN
 	double factor = digs_sign * fast_pow10(exp);
 	handler->float_func(handler->userdata, flt_digs * factor);
-	return QCBE_OK;
+	return QCJE_OK;
 }
 
-static int read_array(char **cursor, qcb_handler_t *handler)
+static int read_array(char **cursor, qcj_handler_t *handler)
 {
 	// OPT local copy of *cursor
 	// Skip opening '['
@@ -293,13 +293,13 @@ static int read_array(char **cursor, qcb_handler_t *handler)
 	skip_space(cursor);
 	if (**cursor == ']') {
 		++*cursor;
-		return QCBE_OK;
+		return QCJE_OK;
 	}
 	// Parse all elements
 	for (;;) {
 		// Parse value
 		int r = read_value(cursor, handler);
-		if (r != QCBE_OK) {
+		if (r != QCJE_OK) {
 			return r;
 		}
 		// Parse comma or ending ']'
@@ -311,14 +311,14 @@ static int read_array(char **cursor, qcb_handler_t *handler)
 		} else if (c == ']') {
 			// Send close
 			handler->close_func(handler->userdata);
-			return QCBE_OK;
+			return QCJE_OK;
 		} else {
-			return QCBE_BAD_ARRAY_SEPARATOR;
+			return QCJE_BAD_ARRAY_SEPARATOR;
 		}
 	}
 }
 
-static int read_object(char **cursor, qcb_handler_t *handler)
+static int read_object(char **cursor, qcj_handler_t *handler)
 {
 	// OPT local copy of *cursor
 	// Skip opening '{'
@@ -328,7 +328,7 @@ static int read_object(char **cursor, qcb_handler_t *handler)
 	skip_space(cursor);
 	if (**cursor == '}') {
 		++*cursor;
-		return QCBE_OK;
+		return QCJE_OK;
 	}
 	// Parse all members
 	for (;;) {
@@ -336,19 +336,19 @@ static int read_object(char **cursor, qcb_handler_t *handler)
 		char *name;
 		size_t nameLength;
 		int r = read_string(cursor, &name, &nameLength);
-		if (r != QCBE_OK) {
+		if (r != QCJE_OK) {
 			return r;
 		}
 		handler->key_func(handler->userdata, name, nameLength);
 		// Parse separating colon
 		skip_space(cursor);
 		if (**cursor != ':') {
-			return QCBE_KEY_VALUE_NEEDS_COLON;
+			return QCJE_KEY_VALUE_NEEDS_COLON;
 		}
 		++*cursor;
 		// Parse value
 		r = read_value(cursor, handler);
-		if (r != QCBE_OK) {
+		if (r != QCJE_OK) {
 			return r;
 		}
 		// Parse comma or ending '}'
@@ -359,14 +359,14 @@ static int read_object(char **cursor, qcb_handler_t *handler)
 			continue;
 		} else if (c == '}') {
 			handler->close_func(handler->userdata);
-			return QCBE_OK;
+			return QCJE_OK;
 		} else {
-			return QCBE_BAD_OBJECT_SEPARATOR;
+			return QCJE_BAD_OBJECT_SEPARATOR;
 		}
 	}
 }
 
-static int read_value(char **cursor, qcb_handler_t *handler)
+static int read_value(char **cursor, qcj_handler_t *handler)
 {
 	skip_space(cursor);
 	switch (**cursor) {
@@ -402,18 +402,18 @@ static int read_value(char **cursor, qcb_handler_t *handler)
 		return read_keyword(cursor, handler);
 	}
 	default: {
-		return QCBE_EXPECTED_VALUE;
+		return QCJE_EXPECTED_VALUE;
 	}
 	}
 }
 
-int qcj_read(char *source, qcb_handler_t *handler)
+int qcj_read(char *source, qcj_handler_t *handler)
 {
 	char *cursor = source;
 	skip_space(&cursor);
 	// Verify object begins with '{'
 	if (*cursor != '{') {
-		return QCBE_BAD_OBJECT_BEGIN;
+		return QCJE_BAD_OBJECT_BEGIN;
 	}
 	return read_object(&cursor, handler);
 }

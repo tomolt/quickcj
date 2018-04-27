@@ -5,7 +5,7 @@
 
 #include "quickcj.h"
 
-int qcj_read(char *, qcb_handler_t *);
+int qcj_read(char *, qcj_handler_t *);
 
 static void print_json_string(char const *string, size_t length)
 {
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	size_t copyLength = strlen(argv[1]) + 1;
 	char *copy = malloc(copyLength), *cursor = copy;
 	memcpy(copy, argv[1], copyLength);
-	qcb_handler_t handler = {
+	qcj_handler_t handler = {
 		.key_func    = key_handler,
 		.string_func = string_handler,
 		.int_func    = int_handler,
