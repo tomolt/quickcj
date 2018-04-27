@@ -411,10 +411,13 @@ int qcj_read(char *source, qcj_handler_t *handler)
 {
 	char *cursor = source;
 	skip_space(&cursor);
-	// Verify object begins with '{'
-	if (*cursor != '{') {
-		return QCJE_BAD_OBJECT_BEGIN;
+	// Verify object begins with '{' or '['
+	if (*cursor == '{') {
+		return read_object(&cursor, handler);
+	} else if (*cursor == '[') {
+		return read_array(&cursor, handler);
+	} else {
+		return QCJE_BAD_DOCUMENT_BEGIN;
 	}
-	return read_object(&cursor, handler);
 }
 
